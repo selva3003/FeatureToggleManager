@@ -1,0 +1,56 @@
+public interface IContainerAdapter : IDisposable
+    {
+        
+        string Name { get; }
+        string PackageName { get; }
+        void PrepareBasic();
+        void Prepare();
+        object Resolve(Type type);
+    }
+public abstract class ContainerAdapterBase : IContainerAdapter
+{
+	public virtual string Name => this.PackageName;
+	public abstract string PackageName
+	{
+  	 get;
+	}
+ 	public abstract object Resolve(Type type);
+ 	public abstract void Dispose();
+	public abstract void PrepareBasic();
+
+        public override string ToString()
+        {
+            return this.Name;
+        }
+
+        public virtual void Prepare()
+        {
+            this.PrepareBasic(); 
+        }
+}
+
+public sealed class DryIocAdapter : ContainerAdapterBase
+    {
+	private IContainer container;
+	public override string PackageName => "DryIoc.dll";
+	public override object Resolve(Type type) => this.container.Resolve(type);
+	public override void Dispose()
+        {
+            if (this.container != null)
+            {
+                this.container.Dispose();
+            }
+        }
+	public override void Prepare()
+        {
+            this.PrepareBasic();
+        }
+	public override void PrepareBasic()
+        {
+            this.container = new Container();
+	    this.container.Register<ISingleton1, Singleton1>(Reuse.Singleton);
+	    this.container.Register<ITransient1, Transient1>();
+            this.container.Register<ICombined3, Combined3>();
+
+        }
+    }
