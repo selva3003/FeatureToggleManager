@@ -1,56 +1,307 @@
-public interface IContainerAdapter : IDisposable
+ public interface IIoCContainer
     {
-        
-        string Name { get; }
-        string PackageName { get; }
-        void PrepareBasic();
-        void Prepare();
-        object Resolve(Type type);
+        /// <summary>
+        /// Register Instance
+        /// </summary>
+        /// <typeparam name="TInterface"></typeparam>
+        /// <typeparam name="TImplementation"></typeparam>
+        void Register<TInterface, TImplementation>()
+            where TImplementation : TInterface;
+
+        /// <summary>
+        /// Register named Instance
+        /// </summary>
+        /// <typeparam name="TInterface"></typeparam>
+        /// <typeparam name="TImplementation"></typeparam>
+        /// <param name="namedKey"></param>
+        void Register<TInterface, TImplementation>(string namedKey)
+           where TImplementation : TInterface;
+
+        /// <summary>
+        /// Register Singleton
+        /// </summary>
+        /// <typeparam name="TInterface"></typeparam>
+        /// <typeparam name="TImplementation"></typeparam>
+        void RegisterSingleTon<TInterface, TImplementation>()
+            where TImplementation : TInterface;
+
+        /// <summary>
+        /// Resolve
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        T Resolve<T>();
+
+        /// <summary>
+        /// Resolve named instance
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="namedKey"></param>
+        /// <returns></returns>
+        T Resolve<T>(string namedKey);
+
+
+        #region Mef Import Export
+        void RegisterExports(Type Interface, Type Implementation);
+        #endregion
     }
-public abstract class ContainerAdapterBase : IContainerAdapter
+ public sealed class DryIoCContainer : IIoCContainer
+    {
+        #region Attributes
+        private IContainer container;
+        #endregion
+        public DryIoCContainer()
+        {
+            //container = new Container();
+            container = new Container().WithMefAttributedModel();
+        }
+
+        /// <summary>
+        /// Register Instance
+        /// </summary>
+        /// <typeparam name="TInterface"></typeparam>
+        /// <typeparam name="TImplementation"></typeparam>
+        public void Register<TInterface, TImplementation>() where TImplementation : TInterface
+        {
+            container.Register<TInterface, TImplementation>();
+        }
+
+        /// <summary>
+        /// Register SingleTon
+        /// </summary>
+        /// <typeparam name="TInterface"></typeparam>
+        /// <typeparam name="TImplementation"></typeparam>
+        public void RegisterSingleTon<TInterface, TImplementation>() where TImplementation : TInterface
+        {
+            container.Register<TInterface, TImplementation>(Reuse.Singleton);
+        }
+
+        /// <summary>
+        /// Resolve
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public T Resolve<T>()
+        {
+            return container.Resolve<T>();
+        }
+
+        /// <summary>
+        /// Register named instance
+        /// </summary>
+        /// <typeparam name="TInterface"></typeparam>
+        /// <typeparam name="TImplementation"></typeparam>
+        /// <param name="namedKey"></param>
+        public void Register<TInterface, TImplementation>(string namedKey) where TImplementation : TInterface
+        {
+            container.Register<TInterface, TImplementation>(serviceKey: namedKey);
+        }
+
+        /// <summary>
+        /// Resolve named instance
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="namedKey"></param>
+        /// <returns></returns>
+        public T Resolve<T>(string namedKey)
+        {
+            return container.Resolve<T>(serviceKey: namedKey);
+        }
+
+        #region Mef Import Export
+        public void RegisterExports(Type Interface, Type Implementation)
+        {
+            container.RegisterExports(Interface, Implementation);
+        }
+        #endregion
+    }
+    public class IocContainerProvider
+    {
+        private IIoCContainer ioCContainer;
+        public IocContainerProvider()
+        {
+            ioCContainer = new DryIoCContainer();
+        }
+        /// <summary>
+        /// Register Instance
+        /// </summary>
+        /// <typeparam name="I"></typeparam>
+        /// <typeparam name="C"></typeparam>
+        public void Register<TInterface, TImplementation>() where TImplementation : TInterface
+        {
+            ioCContainer.Register<TInterface, TImplementation>();
+        }
+
+        public void Register<TInterface, TImplementation>(string namedKey) where TImplementation : TInterface
+        {
+            ioCContainer.Register<TInterface, TImplementation>(namedKey);
+        }
+
+        public void RegisterSingleTon<TInterface, TImplementation>() where TImplementation : TInterface
+        {
+           ioCContainer.RegisterSingleTon<TInterface, TImplementation>();
+        }
+
+        public T Resolve<T>()
+        {
+            return ioCContainer.Resolve<T>();
+        }
+        public T Resolve<T>(string namedKey)
+        {
+            return ioCContainer.Resolve<T>(namedKey);
+        }
+
+        #region Mef Import Export
+        /// <summary>
+        /// Register Mef exports
+        /// </summary>
+        /// <param name="Interface"></param>
+        /// <param name="Implementation"></param>
+        public void RegisterExports(Type Interface, Type Implementation)
+        {
+            ioCContainer.RegisterExports(Interface, Implementation);
+        }
+        #endregion
+    }
+    
+     public class IocContainerProviderTest
+    {
+        private IocContainerProvider containerProvider;
+        public IocContainerProviderTest()
+        {
+            containerProvider = new IocContainerProvider();
+        }
+
+        /// <summary>
+        /// Verify default registration
+        /// </summary>
+        [TestMethod]
+        public void VerifyInstanceRegistration()
+        {
+
+            containerProvider.Register<IRepository, BookRepository>();
+
+            var bookRepo = containerProvider.Resolve<IRepository>();
+            Assert.IsInstanceOfType(bookRepo, typeof(BookRepository));
+        }
+
+        /// <summary>
+        /// verify named registration
+        /// </summary>
+        [TestMethod]
+        public void VerifyNamedInstanceRegistration()
+        {
+
+            containerProvider.Register<IRepository, BookRepository>();
+            containerProvider.Register<IRepository, PersonRepository>(namedKey: "person");
+
+            var personInstance = containerProvider.Resolve<IRepository>(namedKey: "person");
+
+            Assert.IsInstanceOfType(personInstance, typeof(PersonRepository));
+        }
+
+        /// <summary>
+        /// verify if error is thrown when named registration is resolved without name
+        /// </summary>
+        [TestMethod]
+        public void Verify_NamedRegistration_ResolvingWithoutName()
+        {
+            containerProvider.Register<IRepository, BookRepository>(namedKey: "book");
+            containerProvider.Register<IRepository, PersonRepository>(namedKey: "person");
+
+            var ex = Assert.ThrowsException<ContainerException>(() => containerProvider.Resolve<IRepository>());
+            Assert.AreEqual(ex.Error, Error.UnableToResolveFromRegisteredServices);
+        }
+
+        /// <summary>
+        /// verify method invoke after registration
+        /// </summary>
+        [TestMethod]
+        public void VerifyInstanceMethod()
+        {
+            containerProvider.Register<IRepository, BookRepository>();
+
+            var bookRepo = containerProvider.Resolve<IRepository>();
+            Assert.AreEqual("Book Repository", bookRepo.Add());
+        }
+
+        /// <summary>
+        /// Verify singleton object registration
+        /// </summary>
+        [TestMethod]
+        public void VerifySingleTon()
+        {
+            containerProvider.RegisterSingleTon<ISingleton, Singleton>();
+            var one = containerProvider.Resolve<ISingleton>();
+            var another = containerProvider.Resolve<ISingleton>();
+
+            Assert.AreEqual(one, another);
+        }
+
+        #region Mef import export
+
+        /// <summary>
+        /// Verify Mef Exports
+        /// </summary>
+        [TestMethod]
+        public void VerifyExports()
+        {
+            containerProvider.RegisterExports(typeof(Client), typeof(Service));
+            var client = containerProvider.Resolve<Client>();
+            var stringVal = client.Some.DisplayString();
+            Assert.AreEqual("String from Service", stringVal);
+        }
+        #endregion
+    }
+    
+    namespace IoC.Tests
 {
-	public virtual string Name => this.PackageName;
-	public abstract string PackageName
-	{
-  	 get;
-	}
- 	public abstract object Resolve(Type type);
- 	public abstract void Dispose();
-	public abstract void PrepareBasic();
+    public interface ISingleton { }
+    public class Singleton : ISingleton { }
 
-        public override string ToString()
-        {
-            return this.Name;
-        }
-
-        public virtual void Prepare()
-        {
-            this.PrepareBasic(); 
-        }
-}
-
-public sealed class DryIocAdapter : ContainerAdapterBase
+    public interface IRepository
     {
-	private IContainer container;
-	public override string PackageName => "DryIoc.dll";
-	public override object Resolve(Type type) => this.container.Resolve(type);
-	public override void Dispose()
+        string Add();
+    }
+    public class BookRepository : IRepository
+    {
+        public string Add()
         {
-            if (this.container != null)
-            {
-                this.container.Dispose();
-            }
-        }
-	public override void Prepare()
-        {
-            this.PrepareBasic();
-        }
-	public override void PrepareBasic()
-        {
-            this.container = new Container();
-	    this.container.Register<ISingleton1, Singleton1>(Reuse.Singleton);
-	    this.container.Register<ITransient1, Transient1>();
-            this.container.Register<ICombined3, Combined3>();
-
+            return "Book Repository";
         }
     }
+    public class PersonRepository : IRepository
+    {
+        public string Add()
+        {
+            return "Person Repository";
+        }
+    }
+
+    #region MEF Import export
+
+    public interface IService 
+    {
+        string DisplayString();
+    }
+    [Export]
+    public class Service : IService
+    {
+        public string DisplayString()
+        {
+            return "String from Service";
+        }
+    }
+
+    [Export]
+    public class Client
+    {
+        public IService Some { get; set; }
+
+        public Client([Import(typeof(Service))] IService service)
+        {
+            Some = service;
+        }
+    }
+    #endregion
+}
