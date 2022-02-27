@@ -81,3 +81,64 @@
             }
 
         }
+        
+        
+        public const string EXECUTION_TIME = "ExecutionTime";
+        public const string CPU_STATE = "CPUState";
+        public const string MEMORY_STATE = "MemoryState";
+        public const string ID = "id";
+        
+        private void SetPerformanceParameters(string lineParam)
+        {
+            if (lineParam.Length > 0)
+            {
+                var perfParams = lineParam.Split(',');
+                if (perfParams.Length > 0)
+                {
+                    for (int i = 0; i < perfParams.Length; i++)
+                    {
+                        if (i == 0)
+                        {
+                            this.MethodName = perfParams[i];
+                        }
+                        else
+                        {
+                            if (!string.IsNullOrWhiteSpace(perfParams[i]))
+                            {
+                                var metric = perfParams[i].Split(':');
+                                var metricKey = metric[0].Replace("\"", "").Trim();
+                                var metricVal = metric[1].Replace("\"", "").Trim();
+                                switch (metricKey)
+                                {
+                                    case EXECUTION_TIME:
+                                        this.ExecutionTime = int.Parse(metricVal);
+                                        break;
+                                    case CPU_STATE:
+                                        this.CPUState = int.Parse(metricVal);
+                                        break;
+                                    case MEMORY_STATE:
+                                        this.MemoryState = int.Parse(metricVal);
+                                        break;
+                                    case ID:
+                                        this.Id = metricVal;
+                                        break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        logFiles.AsParallel().ForAll(filePath =>
+            {
+                using (var reader = new StreamReader(filePath))
+                {
+                    string line;
+
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        AddLogEntry(line);
+                    }
+                }
+            });
