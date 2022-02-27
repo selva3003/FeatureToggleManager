@@ -1,0 +1,83 @@
+[Serializable]
+    public class LogItem
+    {
+        private string _Message;
+
+        [JsonPropertyName("timestamp")]
+        public DateTime TimeStamp { get; set; }
+        [JsonPropertyName("level")]
+        public string Level { get; set; }
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+
+        [JsonPropertyName("message")]
+        public string Message
+        {
+            get { return _Message; }
+            set
+            {
+                _Message = value;
+                SetPerformanceParameters(_Message);
+            }
+        }
+
+        public string MethodName { get; set; }
+        public int ExecutionTime { get; set; }
+        public int CPUState { get; set; }
+        public int MemoryState { get; set; }
+
+        private void SetPerformanceParameters(string lineParam)
+        {
+            if (lineParam.Length > 0)
+            {
+                var perfParams = lineParam.Split(',');
+                if (perfParams.Length > 0)
+                {
+                    this.MethodName = perfParams[0];
+                    this.ExecutionTime = int.Parse(perfParams[1].Split(':')[1].Replace("\"", "").Trim());
+                    this.CPUState = int.Parse(perfParams[2].Split(':')[1].Replace("\"", "").Trim());
+                    this.MemoryState = int.Parse(perfParams[3].Split(':')[1].Replace("\"", "").Trim());
+                }
+            }
+        }
+    }
+    
+    
+    void ReadAndProcessFiles()
+        {
+            var logFiles = Directory.GetFiles(Application.StartupPath, "*.log");
+
+            foreach (var filePath in logFiles)
+            {
+                using (var reader = new StreamReader(filePath))
+                {
+                    string line;
+
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        AddLogEntry(line);
+                    }
+                }
+            }
+        }
+
+        void AddLogEntry(string line)
+        {
+            LogItem logEntry = JsonSerializer.Deserialize<LogItem>(line);
+           if (logs.Any(logItem => logItem.MethodName == logEntry.MethodName))
+            {
+                var log = logs.Single(logItem => logItem.MethodName == logEntry.MethodName);
+                if (log.ExecutionTime < logEntry.ExecutionTime)
+                {
+                    log.TimeStamp = logEntry.TimeStamp;
+                    log.Level = logEntry.Level;
+                    log.Id = logEntry.Id;
+                    log.Message = logEntry.Message;
+                }
+            }
+            else
+            {
+                logs.Add(logEntry);
+            }
+
+        }
