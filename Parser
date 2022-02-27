@@ -82,7 +82,7 @@
 
         }
         
-        
+        BlockingCollection<LogItem> logs = new BlockingCollection<LogItem>();
         public const string EXECUTION_TIME = "ExecutionTime";
         public const string CPU_STATE = "CPUState";
         public const string MEMORY_STATE = "MemoryState";
